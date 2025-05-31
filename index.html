@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="utf-8">
+  <title>Interactive Movie Map</title>
+  <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no">
+  <link href="https://api.mapbox.com/mapbox-gl-js/v2.14.1/mapbox-gl.css" rel="stylesheet">
+  <script src="https://api.mapbox.com/mapbox-gl-js/v2.14.1/mapbox-gl.js"></script>
+  <script src="https://d3js.org/d3.v6.min.js"></script>
+  <style>
+    
+    body {
+      margin: 0;
+      padding: 0;
+    }
+
+    #map {
+      position: absolute;
+      top: 3350px;
+      /* bottom: -1000px; */
+      left: -405px;
+      width: 100%;
+      height: 100%;
+    }
+
+    #flapmap {
+      position: absolute;
+      top: 1900px;
+      /* bottom: -1000px; */
+      /* left: -405px; */
+      width: 100%;
+      height: 100%;
+    }
+
+    /* Add styles to make the popup background larger */
+    .mapboxgl-popup-content {
+      width: 800px;
+      /* Set width to fit the visualization and labels */
+      height: auto;
+      /* Set height to auto so it expands to fit content */
+      overflow: visible;
+      /* Ensure nothing is cut off */
+    }
+
+    .tooltip {
+      position: absolute;
+      text-align: center;
+      width: auto;
+      height: auto;
+      padding: 6px;
+      font: 12px sans-serif;
+      background: lightsteelblue;
+      border: 0px;
+      border-radius: 8px;
+      pointer-events: none;
+      opacity: 0;
+    }
+
+    #info-container {
+      /* position: absolute; */
+      top: 10px;
+      left: 10px;
+      z-index: 1;
+      background: rgba(255, 255, 255, 0.8);
+      padding: 10px;
+      border-radius: 5px;
+    }
+
+    #info-text {
+      max-width: 42vw;
+      font-size: 18px;
+      /* 20% of the viewport width */
+      word-wrap: break-word;
+      /* ensures text breaks properly */
+      margin-left: 10px;
+    }
+
+    #country-select1 {
+      margin-left: 75px;
+      z-index: 1;
+      background: rgba(255, 255, 255, 0.8);
+      padding: 10px;
+      border-radius: 5px;
+      width: 300px;
+    }
+
+    #country-select2 {
+      margin-left: 75px;
+      z-index: 1;
+      background: rgba(255, 255, 255, 0.8);
+      padding: 10px;
+      border-radius: 5px;
+      width: 300px;
+    }
+
+    #compare-viz {
+      /* position: absolute; */
+      top: 300px
+    }
+
+    #compare-header {
+      margin-left: 10px;
+      font-size: 18px;
+    }
+
+    #compare-header-under {
+      margin-left: 10px;
+      font-size: 18px;
+      margin-top:600px;
+    }
+
+    #compare-title {
+      margin-left: 10px;
+      font-size: 30px;
+    }
+
+    #compare-p {
+      margin-left: 10px;
+      font-size: 18px;
+    }
+
+    #globe-header {
+      margin-top: 120px;
+      margin-left: 855px;
+      font-size: 30px;
+    }
+
+    #globe-desc {
+      margin-top: 5px;
+      margin-left: 855px;
+      font-size: 18px;
+    }
+
+    #genre-container {
+      margin-left: 130px;
+    }
+
+    #genre-container2 {
+      margin-left: 130px;
+    }
+
+    .map-overlay {
+      position: absolute;
+      /* left: 120px; */
+      background-color: rgba(255, 255, 255, 0.7);
+      /* White background with 70% opacity */
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      /* Subtle shadow for depth */
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      /* Optional light border */
+      font-family: Arial, sans-serif;
+      overflow: auto;
+      border-radius: 3px;
+      z-index: 999;
+      /* High z-index to ensure it's on top */
+    }
+
+    /* Style for each item in the legend */
+    .legend-item {
+      display: flex;
+      align-items: center;
+      /* Aligns the circle and text vertically in the center */
+      margin-bottom: 10px;
+      /* Adds space below each legend item */
+      /* border-radius: 50%; */
+    }
+
+    /* Style for the text in each legend item */
+    .legend-text {
+      margin-left: 5px;
+      /* Adds some space between the circle and the text */
+    }
+
+    .legend-title {
+      font-weight: bold;
+      /* Make the title bold */
+      margin-bottom: 10px;
+      /* Add some space below the title */
+      font-size: 16px;
+      /* Optional: adjust the font size as needed */
+      /* ... other styling as needed ... */
+    }
+
+    .gradient-bar {
+      height: 15px;
+      width: 100%;
+      background: linear-gradient(to right,
+          #00FF00, #32CD32, #00FFFF, #1E90FF,
+          #0000FF, #8A2BE2, #FF00FF, #FF4500,
+          #FF6347, #FF8C00, #FF0000);
+      border: 1px solid #000;
+    }
+
+    .gradient-labels {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 5px;
+    }
+
+    .gradient-label {
+      font-size: 12px;
+    }
+
+    #genreSelector {
+      width: 250px;
+      height: 40px;
+      background-color: beige;
+      margin-bottom: 10px;
+      margin-left: 40%;
+      font-weight: bold;
+    }
+
+    /* .vertical-gradient-bar {
+      width: 15px;
+      height: 200px; 
+      background: linear-gradient(
+        #FF0000, #FF8C00, #FF6347, #FF4500, 
+        #FF00FF, #8A2BE2, #0000FF, #1E90FF, 
+        #00FFFF, #32CD32, #00FF00);
+      border: 1px solid #000;
+    }
+
+    .vertical-gradient-labels {
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      height: 200px; 
+    }
+
+    .vertical-gradient-label {
+      font-size: 12px;
+      text-align: center;
+    } */
+  </style>
+</head>
+
+<body>
+
+  <div id="info-container">
+    <h1 style="margin-left:10px">Reel Analytics: An Exploration of Film</h1>
+    <h3 style="margin-left:10px">CS448b Final Project by Ori Spector and Evan Hsu</h3>
+
+    <div class='top-movie-design' style='display: flex; margin-top: auto; margin-bottom: 10px;'>
+      <p id="info-text">
+        <!-- Our project delves into the rich data provided by The Movie Database (TMDb) API to uncover trends and patterns in
+                              the film industry... -->
+        In this project, we uncover fascinating insights of global cinema and delve into various trends within the film industry. Utilizing the extensive dataset provided by
+        <strong>Movie Database (TMDb) API</strong>, our analysis explores how different countries contribute uniquely to
+        the world of film. From uncovering genre preferences in various regions to
+        analyzing budgetary trends, this project aims to offer a comprehensive and nuanced understanding of the
+        cinematic landscape. In our visual explainer, we aim to convey movie statistics through a global and
+        geographical lens, showcasing how cinematic trends are shaped around the world.
+
+      </p>
+      <img id="movieImage1" src="Screenshot 2023-11-28 at 5.53.21 PM.png"
+        style="max-width: 175px; max-height: 250px; box-shadow: 4px 4px 6px rgba(0,0,0,0.3); margin: 0 5px;">
+      <img id="movieImage2" src="Screenshot 2023-11-28 at 5.54.14 PM.png"
+        style="max-width: 175px; max-height: 250px; box-shadow: 4px 4px 6px rgba(0,0,0,0.3); margin: 0 5px;">
+      <img id="movieImage3" src="Screenshot 2023-11-28 at 5.53.58 PM.png"
+        style="max-width: 175px; max-height: 250px; box-shadow: 4px 4px 6px rgba(0,0,0,0.3); margin: 0 5px;">
+      <img id="movieImage4" src="Screenshot 2023-11-28 at 5.55.05 PM.png"
+        style="max-width: 175px; max-height: 250px; box-shadow: 4px 4px 6px rgba(0,0,0,0.3); margin: 0 5px;">
+      <img id="movieImage5" src="Screenshot 2023-11-28 at 5.53.40 PM.png"
+        style="max-width: 175px; max-height: 250px; box-shadow: 4px 4px 6px rgba(0,0,0,0.3); margin: 0 5px;">
+    </div>
+    <div id="compare-viz">
+      <h4 id="compare-header" style="font-size:30px">Comparative Film Industry Analysis</h4>
+      <p id="compare-p">
+        Our comparative visualization tool is designed to offer a side-by-side analytical view of film industry metrics
+        across different countries. By choosing two nations from the dropdown menus, users can effectively compare
+        various elements,
+        including genre popularity, budget allocations, release trends, and more. This interactive feature allows us to
+        reveal commonalities
+        and disparities in the cinematic approaches of each country. In the illustrative example below,
+        we present trends from the United States and Japan. Our visualizations depict varying top genre preferences,
+        with 'Drama'
+        and 'Comedy' leading in the US, while 'Animation' and 'Action' take precedence in Japan—a reflection of cultural
+        distinctions in
+        cinematic preferences. To explore further, use the dropdown menu located above each set of graphs to
+        dynamically alter the
+        displayed statistics by country.
+      </p>
+      <h4 id="compare-header">Another Example - China and Italy - A Dive into Film and History</h4>
+      <p id="compare-p">
+        Some interesting insight is revealed when exploring the release date distributions of movies in China and Italy.
+        The majority of Chinese movies in the dataset are concentrated in the 2000s and onwards, reflecting a notable
+        surge in cinematic
+        output during this period. This aligns with China's dynamic and rapidly growing film industry, marked by
+        increased investments and
+        global recognition in the 21st century. Conversely, Italy, while also showcasing a significant portion of movies
+        from the 2000s onwards, shows
+        a substantial presence of films dating back to the 1960s. The extensive timeline in Italy's cinematic history
+        suggests the enduring significance
+        of film in their culture over the decades, spanning diverse cinematic eras and styles. This contrast between
+        China and
+        Italy underscores the nuanced temporal patterns in film production across different regions, shedding light on
+        the historical contexts that
+        shape each country's cinematic narrative. Select 'China' and 'Italy' using the dropdown menus of this tool to
+        view the comparison.
+      </p>
+      <select id="country-select1">
+        <option value="">Select a country</option>
+        <option value="USA" selected>United States of America</option>
+
+        <!-- JavaScript will populate country options here -->
+      </select>
+      <div id='d3-container' style='width:800px; height:auto; overflow: visible; display:flex; margin-top: 50px;'>
+        <div id='histogram-container'></div>
+        <div id='budget-container'></div>
+        <div id='genre-container'></div>
+        <div id='date-container'></div>
+      </div>
+
+      <select id="country-select2">
+        <option value="">Select a country</option>
+        <option value="Japan" selected>Japan</option>
+
+      </select>
+      <div id='d3-container2' style='width:800px; height:auto; overflow: visible; display:flex; margin-top: 50px;'>
+        <div id='histogram-container2'></div>
+        <div id='budget-container2'></div>
+        <div id='genre-container2'></div>
+        <div id='date-container2'></div>
+      </div>
+
+
+      <h1 id="compare-title">Genres Across Borders</h1>
+      <p id="compare-p">
+        In our next visualization, we will further uncover the intersection of film genres across countries. Our tool
+        plots the count of movies per genre for countries around the world, enabling users to see the prevalence of a
+        specified genre in movie production. This map visualization allows viewers to quickly find similarities and
+        differences of the most popular genres in a geographical perspective. To dynamically update the visualization,
+        select a genre from the dropdown menu. Click, hold, and drag to move the map view around, and hover over each
+        point to view genre percentage (count of movies for a given genre divded by the total movies for that country).
+      <h4 id="compare-header">NOTE: </h4>
+      <p id="compare-p">
+        Many of the orange and red points, indicating a high percentage, are movies with a low total movie count. It is
+        important to consider the total movie count for a country to get a more realistic takeaway from the genre
+        percentages. We recognize that although our dataset is extensive, it still has its limitations, and may not have
+        high movie counts for all countries. A movie can have multiple genres and be counted once across different
+        genres. Therefore the genre percentages may not all add up to 100%.
+      </p>
+
+      </p>
+      <select id="genreSelector">
+        <option value="Action">Action</option>
+        <option value="Crime">Crime</option>
+        <option value="History">History</option>
+        <option value="War">War</option>
+        <option value="Drama">Drama</option>
+        <option value="Thriller">Thriller</option>
+        <option value="Fantasy">Fantasy</option>
+        <option value="Comedy">Comedy</option>
+        <option value="Romance">Romance</option>
+        <option value="Adventure">Adventure</option>
+        <option value="Western">Western</option>
+        <option value="Horror">Horror</option>
+        <option value="Music">Music</option>
+        <option value="Science Fiction">Science Fiction</option>
+        <option value="Animation">Animation</option>
+        <option value="Family">Family</option>
+        <option value="Mystery">Mystery</option>
+        <option value="TV Movie">TV Movie</option>
+      </select>
+
+      <div id="flatmap" style="
+                        width: 100%;
+                        position: absolute;
+                        height: 70%;
+                    "></div>
+      <div id='legend' class='map-overlay'></div>
+
+      <h4 id="compare-header-under">An Insightful Example: The Distribution of Action Movies Produced</h4>
+      <p id="compare-p">
+        In the visualization below, the map is updated with 'Action' as the selected genre. Looking at the plotted
+        points, we can see the varying popularity of action movies by region. For example, most of the percentages in
+        North America and Western Europe lie between 15-30%, which is lower than the percentages in Eastern Europe and
+        Asia where the ranges mostly lie between 30-60%. Some notable high percentages are China (62%), Japan (53%), and
+        Russia (51%) marking a significant contrast from the countries in North America, which range from 20-30%. It is
+        possible that the distinct cultural tastes and preferences may drive the differnces in these percentages.
+        Different regions often have unique storytelling traditions, historical influences, and societal preferences
+        that shape the popularity of specific genres.
+        <!-- <strong>Additional patterns to add to narrative: fantasy, animation, action more asian russian, heavy. On the other hand romance, comedy more heavily western countryes, USA Canada, france, uk, italy, etc. india and austrailia have a higher perctange family. Horro very common in northern europe, MENA/arabic nations, Austialia + NZ. War genre is heavy for Middle east / muslim and eastern europe</strong> -->
+      </p>
+      <h4 id="compare-header">Exploring Fantasy: Regional Preferences in Fantasy Movie Production</h4>
+      <p id="compare-p">
+        The map below highlights 'Fantasy' as the chosen genre. We observe distinct regional preferences for fantasy movies. For instance, East Asian countries and Russia show a pronounced affinity, with percentages generally ranging from 20-30%. Particularly, China (~21%), Russia (~22%), and Japan (~30%) showcase a strong inclination towards this genre. This contrast is stark when compared to Western countries like the United States, Canada, and the UK, where fantasy movie production constitutes about 10% of the total. The unique mythologies and folklore prevalent in Asian and Russian cultures could be influencing this trend.
+      </p>
+
+      <h4 id="compare-header">Comedy and Romance: Western Dominance in Lighter Genres</h4>
+      <p id="compare-p">
+        This section focuses on 'Comedy' and 'Romance' genres. The map illustrates that these genres are predominantly popular in Western countries. For instance, The United States, Canada, France, the UK, Italy, and other Western nations in Europe show a substantial production of these genres, with percentages often exceeding 15-40% respectively. This trend reflects the cultural leanings and social contexts of these regions, where light-hearted entertainment is highly valued. The influence of historical cinematic movements, such as the French New Wave and Hollywood's Golden Age, may also play a role in this trend.
+      </p>
+
+      <h4 id="compare-header">The Global Appeal of Horror: A Cross-Continental Analysis</h4>
+      <p id="compare-p">
+        In this visualization, we focus on the 'Horror' genre. It's intriguing to see its widespread appeal, with significant popularity in Northern Europe, MENA/Arabic nations, and regions like Australia and New Zealand. Countries like Sweden, Egypt, and New Zealand often see horror films making up to 30% of their cinematic output. This trend might be attributed to the diverse cultural narratives and folklore that lend themselves well to the horror genre. Additionally, war, lack of light may also lead to larger amount of horror movies being produced. </p>
+
+     
+
+      <h4 id="globe-header">A Global Distubriton of IMDb movies</h4>
+      <p id="globe-desc">
+        In our final and most interactive visualization, we illustrate the cinematic landscape on a globe, plotting the
+        total movie counts for each respective country. Each country is represented by a colored dot, with the size of
+        the dot representing the total movie count for that country. The circle's radius size is directly proportional
+        to the total movie count, and the color becomes darker and more red as the movie count increases. Click, hold,
+        and drag to rotate the globe. Hovering over each point will list the country's name and movie count. Beyond the
+        movie metadata, users can explore specific movies for each country by clicking on a point. The popup that
+        appears after clicking a point offers an interactive experience, enabling users to browse movie posters, titles,
+        ratings, an overviews to immerse themselves in the diversity of cinema. We also incorporated a filtering
+        feature, which allows users to tailor search results to their interests. Overall, our inteactive globe reveals
+        cinematic contributions from around the world and provides an in-depth exploration of the movies behind the
+        trends.
+
+      </p>
+
+
+    </div>
+
+
+
+    <div id="map"></div>
+
+
+
+
+    <script src="mainScript.js"></script>
+    <script src="flatMap.js"></script>
+
+</body>
+
+</html>
